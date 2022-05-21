@@ -1,4 +1,4 @@
-package nats
+package main
 
 import (
 	"fmt"
@@ -51,7 +51,6 @@ type DiscoverResult struct {
 type Config struct {
 	Server  string
 	Verbose bool
-	Local   string
 	Net     *vnet.Net
 }
 
@@ -61,7 +60,6 @@ type NATS struct {
 	verbose    bool
 	net        *vnet.Net
 	dfErr      error // filled by discoverFilteringBehavior
-	localAddr  string
 }
 
 // NewNATS creats a new instance of NATS.
@@ -81,18 +79,13 @@ func NewNATS(config *Config) (*NATS, error) {
 		serverAddr: serverAddr,
 		verbose:    config.Verbose,
 		net:        config.Net,
-		localAddr:  config.Local,
 	}, nil
 }
 
 // Discover performs NAT discovery process defined in RFC 5780.
 func (nats *NATS) Discover() (*DiscoverResult, error) {
 	nats.dfErr = nil
-	localAddr := "0.0.0.0:0"
-	if nats.localAddr != "" {
-		localAddr = nats.localAddr
-	}
-	conn, err := nats.net.ListenPacket("udp4", localAddr)
+	conn, err := nats.net.ListenPacket("udp4", "0.0.0.0:0")
 	if err != nil {
 		return nil, err
 	}
@@ -187,15 +180,13 @@ func (nats *NATS) Discover() (*DiscoverResult, error) {
 			continue
 		}
 	}
-	log.Printf("toaddr %+v , mappedAddrs %+v\n", toAddrs, mappedAddrs)
+
 	if res.IsNatted {
-		if mappedAddrs[0].String() == mappedAddrs[2].String() {
-			res.MappingBehavior = EndpointIndependent
-		} else {
-			if mappedAddrs[3].String() == mappedAddrs[2].String() {
-				res.MappingBehavior = EndpointAddrDependent
-			} else {
+		if mappedAddrs[0].Port != mappedAddrs[2].Port {
+			if mappedAddrs[0].Port != mappedAddrs[1].Port {
 				res.MappingBehavior = EndpointAddrPortDependent
+			} else {
+				res.MappingBehavior = EndpointAddrDependent
 			}
 		}
 	}
@@ -245,11 +236,7 @@ func (nats *NATS) findIsLocalIP(ip net.IP) bool {
 }
 
 func (nats *NATS) discoverFilteringBehavior() (<-chan EndpointDependencyType, error) {
-	localAddr := "0.0.0.0:0"
-	if nats.localAddr != "" {
-		localAddr = nats.localAddr
-	}
-	conn, err := nats.net.ListenPacket("udp4", localAddr)
+	conn, err := nats.net.ListenPacket("udp4", "0.0.0.0:0")
 	if err != nil {
 		return nil, err
 	}

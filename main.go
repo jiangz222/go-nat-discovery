@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/enobufs/go-nats/nats"
 )
@@ -18,13 +19,17 @@ func check(err error) {
 
 func main() {
 	server := flag.String("s", "stun.sipgate.net:3478", "STUN server address.")
+	localAddr := flag.String("i", "", "STUN local addr. ip or ip:port")
 	verbose := flag.Bool("v", false, "Verbose")
 
 	flag.Parse()
-
+	if !strings.Contains(*localAddr, ":") {
+		*localAddr = *localAddr + ":0"
+	}
 	n, err := nats.NewNATS(&nats.Config{
 		Server:  *server,
 		Verbose: *verbose,
+		Local:   *localAddr,
 	})
 	check(err)
 
