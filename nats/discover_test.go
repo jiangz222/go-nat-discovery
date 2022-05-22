@@ -79,7 +79,6 @@ func buildVNet(natType *vnet.NATType) (*virtualNet, error) {
 		PrimaryAddress:   "1.2.3.4:3478",
 		SecondaryAddress: "1.2.3.5:3479",
 		Net:              wanNet,
-		LoggerFactory:    loggerFactory,
 	})
 	if err != nil {
 		return nil, err

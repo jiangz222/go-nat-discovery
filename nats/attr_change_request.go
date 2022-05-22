@@ -14,6 +14,10 @@ type attrChangeRequest struct {
 	ChangePort bool
 }
 
+func NewAttrChangeRequest() attrChangeRequest {
+	return attrChangeRequest{}
+}
+
 func (a *attrChangeRequest) String() string {
 	return fmt.Sprintf("changeIP=%v changePort=%v", a.ChangeIP, a.ChangePort)
 }

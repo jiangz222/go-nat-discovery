@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -13,27 +18,39 @@ import (
 	"github.com/pion/transport/vnet"
 )
 
+const (
+	priToSecUri string = "/v1/gostun/pri2sec"
+)
+
 type STUNServerConfig struct {
 	PrimaryAddress   string
 	SecondaryAddress string
 	Net              *vnet.Net
 	role             string
+	pri2SecHost      string
 	//LoggerFactory    logging.LoggerFactory
+}
+type priToSec struct {
+	From  *net.UDPAddr  `json:"from"`
+	M     *stun.Message `json:"m"`
+	Index int           `json:"index"`
 }
 
 type STUNServer struct {
-	priAddrs []*net.UDPAddr
-	secAddrs []*net.UDPAddr
-	conns    []net.PacketConn
-	software stun.Software
-	net      *vnet.Net
-	log      logging.LeveledLogger
-	role     string
+	priAddrs    []*net.UDPAddr
+	secAddrs    []*net.UDPAddr
+	conns       []net.PacketConn
+	software    stun.Software
+	net         *vnet.Net
+	log         logging.LeveledLogger
+	pri2SecHost string
+	role        string
 }
 
 func main() {
 	primaryAddr := flag.String("p", "127.0.0.1:3478", "STUN primary server address.")
 	secondaryAddress := flag.String("s", "192.168.31.24:3479", "STUN secondary server addr")
+	pri2SecHost := flag.String("p2s", "", "STUN primary server to secondary server")
 	// role both,说明2个ip都在同一个机器上，否则是分开部署
 	role := flag.String("r", "both", "this server role")
 
@@ -42,8 +59,12 @@ func main() {
 		fmt.Println("wrong role, only support: both 、 pri 、 sec")
 		return
 	}
+	if *role == "pri" && *pri2SecHost == "" {
+		fmt.Println("need pri2SecHost when current role is pri")
+		return
+	}
 
-	s, err := NewSTUNServer(&STUNServerConfig{PrimaryAddress: *primaryAddr, SecondaryAddress: *secondaryAddress, role: *role})
+	s, err := NewSTUNServer(&STUNServerConfig{PrimaryAddress: *primaryAddr, SecondaryAddress: *secondaryAddress, role: *role, pri2SecHost: *pri2SecHost})
 	if err != nil {
 		fmt.Println("err new stun server")
 		return
@@ -51,9 +72,47 @@ func main() {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	s.Start()
+	if *role == "sec" {
+		s.startListenServer()
+	}
 	wg.Wait()
 
 }
+
+// parseReq 解析http请求
+func parseReq(req *http.Request, result interface{}) error {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		fmt.Println("Error reading body: ", err)
+		return errors.New("can't read body")
+	}
+	if err = json.Unmarshal(body, result); err != nil {
+		fmt.Println("Error unmarshal body: ", err)
+		return errors.New("can't read body")
+	}
+	return nil
+}
+
+func (s *STUNServer) priToSecHandler(w http.ResponseWriter, r *http.Request) {
+	pts := &priToSec{}
+	err := parseReq(r, pts)
+	if err != nil {
+		s.log.Errorf("parseReq err from pri %v", err)
+		http.Error(w, "parseReq err from pri ", http.StatusBadRequest)
+		return
+	}
+	err = s.handleBindingRequest(pts.From, pts.M, s.conns[pts.Index-2])
+	if err != nil {
+		s.log.Errorf("handleBindingRequest err")
+		http.Error(w, "handleBindingRequest err", http.StatusInternalServerError)
+		return
+	}
+}
+func (s *STUNServer) startListenServer() {
+	http.HandleFunc(priToSecUri, s.priToSecHandler)
+	http.ListenAndServe(s.pri2SecHost, nil)
+}
+
 func NewSTUNServer(config *STUNServerConfig) (*STUNServer, error) {
 	//log := config.LoggerFactory.NewLogger("stun-serv")
 	log := logging.NewDefaultLeveledLoggerForScope("", logging.LogLevelDebug, os.Stdout)
@@ -100,7 +159,7 @@ func NewSTUNServer(config *STUNServerConfig) (*STUNServer, error) {
 	}
 	secAddrs = append(secAddrs, addr3)
 
-	return &STUNServer{priAddrs: priAddrs, secAddrs: secAddrs, net: config.Net, log: log, role: config.role}, nil
+	return &STUNServer{priAddrs: priAddrs, secAddrs: secAddrs, net: config.Net, log: log, role: config.role, pri2SecHost: config.pri2SecHost}, nil
 }
 
 func (s *STUNServer) Start() error {
@@ -161,23 +220,22 @@ func (s *STUNServer) readLoop(index int) {
 			s.log.Warn("not a binding request. dropping...")
 			continue
 		}
-
-		err = s.handleBindingRequest(index, from, m)
+		conn, err := s.getConn(index, from, m)
+		if err != nil || conn == nil {
+			s.log.Warnf("get connection failure %v, or conn to sec", err)
+			continue
+		}
+		err = s.handleBindingRequest(from, m, conn)
 		if err != nil {
 			s.log.Errorf("readLoop: handleBindingRequest failed: %s", err.Error())
 			return
 		}
 	}
 }
-
-func (s *STUNServer) handleBindingRequest(index int, from net.Addr, m *stun.Message) error {
-	s.log.Debugf("received BindingRequest from %s", from.String())
-
-	var conn net.PacketConn
-
+func (s *STUNServer) getConn(index int, from net.Addr, m *stun.Message) (conn net.PacketConn, err error) {
 	// Check CHANGE-REQUEST
 	changeReq := attrChangeRequest{}
-	err := changeReq.GetFrom(m)
+	err = changeReq.GetFrom(m)
 	if err != nil {
 		s.log.Debugf("CHANGE-REQUEST not found: %s", err.Error())
 		conn = s.conns[index]
@@ -190,8 +248,22 @@ func (s *STUNServer) handleBindingRequest(index int, from net.Addr, m *stun.Mess
 		if changeReq.ChangePort {
 			index ^= 0x1
 		}
-		conn = s.conns[index]
+		if index >= len(s.conns) {
+			if s.role == "pri" {
+				return nil, s.sendMsgToSec(index, from, m)
+			} else {
+				s.log.Errorf("not expect %d %s", index, s.role)
+				return nil, errors.New("not expect")
+			}
+		} else {
+			conn = s.conns[index]
+		}
 	}
+	return conn, nil
+}
+
+func (s *STUNServer) handleBindingRequest(from net.Addr, m *stun.Message, conn net.PacketConn) error {
+	s.log.Debugf("received BindingRequest from %s", from.String())
 
 	udpAddr := from.(*net.UDPAddr)
 
@@ -217,14 +289,39 @@ func (s *STUNServer) handleBindingRequest(index int, from net.Addr, m *stun.Mess
 		return err
 	}
 
-	s.log.Infof("%+v %+v %+v", conn, msg, from)
+	//s.log.Infof("%+v %+v %+v", conn, msg, from)
 	_, err = conn.WriteTo(msg.Raw, from)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
+func (s *STUNServer) sendMsgToSec(index int, from net.Addr, m *stun.Message) error {
+	client := http.Client{}
+	fromUDP := from.(*net.UDPAddr)
+	pts := priToSec{
+		From:  fromUDP,
+		M:     m,
+		Index: index,
+	}
+	bytesPts, err := json.Marshal(pts)
+	if err != nil {
+		s.log.Warnf("marshal pts err: %s", err.Error())
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, "http://"+s.pri2SecHost+priToSecUri, bytes.NewReader(bytesPts))
+	if err != nil {
+		s.log.Warnf("NewRequest  err: %s", err.Error())
+		return err
+	}
+	_, err = client.Do(req)
+	if err != nil {
+		s.log.Warnf("client do  err: %s", err.Error())
+		return err
+	}
+	s.log.Debug("client do  success ")
+	return nil
+}
 func (s *STUNServer) makeAttrs(
 	transactionID [stun.TransactionIDSize]byte,
 	msgType stun.MessageType,

@@ -1,43 +1,42 @@
 # go-nats
-NAT type discovery tool using STUN written purely in Go, powered by [pion](https://pion.ly).
+NAT type discovery tool using STUN written purely in Go, 
+Rewrite the [go-nats](https://github.com/enobufs/go-nats) which is powered by [pion](https://pion.ly).
+
+add features:
+- fix bugs in original go-nats' discover rules
+- add stun discovery server 
+- add slave and master server, for servers don't have two public ip
 
 ## Usage
-```
-$ go build
-$ ./go-nats -h
-Usage of ./go-nats:
-  -s string
-        STUN server address. (default "stun.sipgate.net:3478")
-  -v	Verbose
-```
 
-Example:
+### client 
+
 ```
-$ ./go-nats -s stun.sipgate.net
-{
-  "isNatted": true,
-  "mappingBehavior": 0,
-  "filteringBehavior": 2,
-  "portPreservation": true,
-  "natType": "Port-restricted cone NAT",
-  "externalIP": "23.3.5.241"
-}
+# cd .
+# go run main.go -s stun.sipgate.net:3478 -i localIp:localPort 
 ```
 
-> Depending on the type of NAT, it may take ~8 seconds.
+### server
 
-## Public STUN servers
-STUN servers to use must support RFC 5780 (NAT Behavior Discovery Using STUN).
-Here's a list of public STUN servers that worked with go-nats as of Sep. 13, 2019.
+#### server has two public ip
 
-* stun.ekiga.net
-* stun.callwithus.com
-* stun.counterpath.net
-* stun.sipgate.net
-* stun.sipgate.net:10000
-* stun.1-voip.com
-* stun.12connect.com
-* stun.1und1.de
-* stun.3clogic.com
+```
+# cd nats-server
+# go run main.go -r both -p publicIp-1:port-1 -s publicIP-2:port-2
+```
 
-> TODO: there may be more from this list: [Emercoin/ENUMER projects](http://olegh.ftp.sh/public-stun.txt)
+#### servers only has one public ip
+
+If you don't has two public ip on one server, then You must have two server, each one has one public ip, and two server can communicate to each other via `primary2SecondaryHost:port.
+
+- server A, run as primary
+```
+# cd nats-server
+# go run main.go -r pri -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
+```
+
+- server B, run as secondary
+```
+# cd nats-server
+# go run main.go -r sec -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
+```
