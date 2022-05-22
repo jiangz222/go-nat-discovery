@@ -1,4 +1,4 @@
-# go-nats
+# go-stun-discovery
 
 NAT type discovery tool using STUN written purely in Go, include client and server.
 
@@ -43,11 +43,11 @@ If you don't has two public ip on one server, then You must have two server, eac
 
 - server A, run as primary
 ```
-# go run server.go -r pri -p publicIpOnPrimary:portA -p2s primary2SecondaryHost:port
+# go run server.go -r pri -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
 ```
 
 - server B, run as secondary
 ```
-# go run server.go -r sec -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
+# go run server.go -r sec -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
 ```
 
