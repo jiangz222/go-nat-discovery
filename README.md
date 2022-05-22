@@ -13,7 +13,7 @@ add features:
 
 ```
 # cd .
-# go run main.go -s stun.sipgate.net:3478 -i localIp:localPort 
+# go run client.go -s stun.sipgate.net:3478 -i localIp:localPort 
 ```
 
 ### server
@@ -22,7 +22,7 @@ add features:
 
 ```
 # cd nats-server
-# go run main.go -r both -p publicIp-1:port-1 -s publicIP-2:port-2
+# go run server.go -r both -p publicIp-1:port-1 -s publicIP-2:port-2
 ```
 
 #### servers only has one public ip
@@ -31,12 +31,11 @@ If you don't has two public ip on one server, then You must have two server, eac
 
 - server A, run as primary
 ```
-# cd nats-server
-# go run main.go -r pri -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
+# go run server.go -r pri -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
 ```
 
 - server B, run as secondary
 ```
 # cd nats-server
-# go run main.go -r sec -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
+# go run server.go -r sec -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
 ```
