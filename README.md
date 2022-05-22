@@ -37,9 +37,9 @@ should has output:
 # go run server.go -p publicIp-1:port-1 -s publicIP-2:port-2
 ```
 
-#### servers only has one public ip
+#### server has one public ip
 
-If you don't has two public ip on one server, then You must have two server, each one has one public ip, and two server can communicate to each other via `primary2SecondaryHost:port.
+If you don't have two public ip on one server, then You must have two server, each one has one public ip, and two server can communicate to each other via `primary2SecondaryHost:port.
 
 - server A, run as primary
 ```
