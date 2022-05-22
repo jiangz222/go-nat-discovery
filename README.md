@@ -34,7 +34,7 @@ should has output:
 #### server has two public ip
 
 ```
-# go run server.go -r both -p publicIp-1:port-1 -s publicIP-2:port-2
+# go run server.go -p publicIp-1:port-1 -s publicIP-2:port-2
 ```
 
 #### servers only has one public ip
@@ -43,11 +43,11 @@ If you don't has two public ip on one server, then You must have two server, eac
 
 - server A, run as primary
 ```
-# go run server.go -r pri -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
+# go run server.go -r pri -p publicIpOnPrimary:portA -p2s primary2SecondaryHost:port
 ```
 
 - server B, run as secondary
 ```
-# go run server.go -r sec -p publicIpOnPrimary:portA -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
+# go run server.go -r sec -s publicIpOnServerB:portB -p2s primary2SecondaryHost:port
 ```
 

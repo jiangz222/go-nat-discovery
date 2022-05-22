@@ -123,7 +123,6 @@ func NewSTUNServer(config *STUNServerConfig) (*STUNServer, error) {
 		return nil, err
 	}
 	secAddrs = append(secAddrs, addr3)
-
 	return &STUNServer{priAddrs: priAddrs, secAddrs: secAddrs, net: config.Net, log: log, role: config.Role, pri2SecHost: config.Pri2SecHost}, nil
 }
 
@@ -243,8 +242,8 @@ func (s *STUNServer) handleBindingRequest(from net.Addr, m *stun.Message, conn n
 		},
 		&attrChangedAddress{
 			attrAddress{
-				IP:   s.priAddrs[1].IP,
-				Port: s.priAddrs[1].Port,
+				IP:   s.secAddrs[1].IP,
+				Port: s.secAddrs[1].Port,
 			},
 		},
 		stun.Fingerprint)
