@@ -1,4 +1,4 @@
-# go-stun-discovery
+# go-nat-discovery
 
 NAT type discovery tool using STUN written purely in Go, include client and server.
 
