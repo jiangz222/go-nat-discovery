@@ -4,42 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/enobufs/go-nats/nats"
-	"net"
 	"sync"
-
-	"github.com/pion/logging"
-	"github.com/pion/stun"
-	"github.com/pion/transport/vnet"
 )
-
-const (
-	priToSecUri string = "/v1/gostun/pri2sec"
-)
-
-type STUNServerConfig struct {
-	PrimaryAddress   string
-	SecondaryAddress string
-	Net              *vnet.Net
-	role             string
-	pri2SecHost      string
-	//LoggerFactory    logging.LoggerFactory
-}
-type priToSec struct {
-	From  *net.UDPAddr  `json:"from"`
-	M     *stun.Message `json:"m"`
-	Index int           `json:"index"`
-}
-
-type STUNServer struct {
-	priAddrs    []*net.UDPAddr
-	secAddrs    []*net.UDPAddr
-	conns       []net.PacketConn
-	software    stun.Software
-	net         *vnet.Net
-	log         logging.LeveledLogger
-	pri2SecHost string
-	role        string
-}
 
 func main() {
 	primaryAddr := flag.String("p", "", "STUN primary server address.")

@@ -127,9 +127,10 @@ func NewSTUNServer(config *STUNServerConfig) (*STUNServer, error) {
 }
 
 func (s *STUNServer) Start() error {
+	var index int
 	if s.role == "pri" || s.role == "both" {
 		s.log.Warnf("%+v", s.priAddrs)
-		for i, addr := range s.priAddrs {
+		for _, addr := range s.priAddrs {
 			var err error
 			s.log.Debugf("start listening on %s...", addr.String())
 			conn, err := s.net.ListenUDP("udp", addr)
@@ -137,12 +138,15 @@ func (s *STUNServer) Start() error {
 			if err != nil {
 				return err
 			}
-			go s.readLoop(i)
+			go func(i int) {
+				s.readLoop(i)
+			}(index)
+			index++
 		}
 	}
 	if s.role == "sec" || s.role == "both" {
 		s.log.Warnf("%+v", s.secAddrs)
-		for i, addr := range s.secAddrs {
+		for _, addr := range s.secAddrs {
 			var err error
 			s.log.Debugf("start listening on %s...", addr.String())
 			conn, err := s.net.ListenUDP("udp", addr)
@@ -150,7 +154,10 @@ func (s *STUNServer) Start() error {
 			if err != nil {
 				return err
 			}
-			go s.readLoop(i)
+			go func(i int) {
+				s.readLoop(i)
+			}(index)
+			index++
 		}
 	}
 

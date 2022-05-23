@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 
 	"github.com/pion/logging"
 	"github.com/pion/stun"
@@ -14,6 +15,15 @@ import (
 // EndpointDependencyType ...
 type EndpointDependencyType uint8
 
+const (
+	Blocked              = "Blocked"
+	OpenInternet         = "Open Internet"
+	FullCone             = "Full Cone"
+	SymmetricUDPFirewall = "Symmetric UDP Firewall"
+	RestricNAT           = "Restric NAT"
+	RestricPortNAT       = "Restric Port NAT"
+	SymmetricNAT         = "Symmetric NAT"
+)
 const (
 	// EndpointIndependent means the behavior is independent of the endpoint's address or port
 	EndpointIndependent EndpointDependencyType = iota
@@ -45,6 +55,7 @@ type DiscoverResult struct {
 	PortPreservation  bool                   `json:"portPreservation"`
 	NATType           string                 `json:"natType"`
 	ExternalIP        string                 `json:"externalIP"`
+	ExternalPort      string                 `json:"externalPort"`
 }
 
 // Config has config parameters for NewNATS.
@@ -168,6 +179,7 @@ func (nats *NATS) Discover() (*DiscoverResult, error) {
 			res.IsNatted = !nats.findIsLocalIP(mappedAddrs[0].IP)
 			res.PortPreservation = (mappedAddrs[0].Port == locAddr.Port)
 			res.ExternalIP = mappedAddrs[0].IP.String()
+			res.ExternalPort = strconv.Itoa(mappedAddrs[0].Port)
 
 			var caddr attrAddress
 			if err = caddr.getAs(trRes.Msg, attrTypeChangedAddress); err != nil {
@@ -187,7 +199,7 @@ func (nats *NATS) Discover() (*DiscoverResult, error) {
 			continue
 		}
 	}
-	log.Printf("toaddr %+v , mappedAddrs %+v\n", toAddrs, mappedAddrs)
+	//log.Printf("toaddr %+v , mappedAddrs %+v\n", toAddrs, mappedAddrs)
 	if res.IsNatted {
 		if mappedAddrs[0].String() == mappedAddrs[2].String() {
 			res.MappingBehavior = EndpointIndependent
@@ -211,22 +223,22 @@ func (nats *NATS) Discover() (*DiscoverResult, error) {
 		if res.MappingBehavior == EndpointIndependent {
 			switch res.FilteringBehavior {
 			case EndpointIndependent:
-				res.NATType = "Full cone NAT"
+				res.NATType = FullCone
 			case EndpointAddrDependent:
-				res.NATType = "Address-restricted cone NAT"
+				res.NATType = RestricNAT
 			case EndpointAddrPortDependent:
-				res.NATType = "Port-restricted cone NAT"
+				res.NATType = RestricPortNAT
 			default:
-				res.NATType = "(undefined)"
+				res.NATType = "undefined"
 			}
 		} else {
-			res.NATType = "Symmetric NAT"
+			res.NATType = SymmetricNAT
 		}
 	} else {
 		if res.FilteringBehavior == EndpointIndependent {
-			res.NATType = "Open to the Internet"
+			res.NATType = OpenInternet
 		} else {
-			res.NATType = "UDP blocked by firewall"
+			res.NATType = Blocked
 		}
 	}
 
