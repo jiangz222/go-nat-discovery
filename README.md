@@ -19,14 +19,9 @@ Add features:
 
 should has output:
 ```
-{
-  "isNatted": true,
-  "mappingBehavior": 0,
-  "filteringBehavior": 0,
-  "portPreservation": false,
-  "natType": "Full cone NAT",
-  "externalIP": "117.140.96.109"
-}
+NAT Type: Blocked
+External IP: None
+External Port: None
 ```
 
 ### server

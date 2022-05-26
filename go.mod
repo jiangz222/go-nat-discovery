@@ -1,4 +1,5 @@
-module github.com/enobufs/go-nats
+module github.com/jiangz222/go-nat-discovery
+
 
 go 1.12
 

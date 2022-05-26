@@ -3,8 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/enobufs/go-nats/nats"
 	"sync"
+
+	"github.com/jiangz222/go-nat-discovery/nats"
 )
 
 func main() {

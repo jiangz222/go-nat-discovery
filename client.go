@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/enobufs/go-nats/nats"
+	"github.com/jiangz222/go-nat-discovery/nats"
 )
 
 func check(err error) {
@@ -18,7 +18,8 @@ func check(err error) {
 }
 
 func main() {
-	server := flag.String("s", "stun.sipgate.net:3478", "STUN server address.")
+	server := flag.String("H", "stun.sipgate.net", "STUN server address.")
+	port := flag.String("P", "3478", "STUN server port.")
 	localAddr := flag.String("i", "", "STUN local addr. ip or ip:port")
 	verbose := flag.Bool("v", false, "Verbose")
 
@@ -27,7 +28,7 @@ func main() {
 		*localAddr = *localAddr + ":0"
 	}
 	n, err := nats.NewNATS(&nats.Config{
-		Server:  *server,
+		Server:  *server + ":" + *port,
 		Verbose: *verbose,
 		Local:   *localAddr,
 	})
@@ -36,8 +37,10 @@ func main() {
 	res, err := n.Discover()
 	check(err)
 
-	bytes, err := json.MarshalIndent(res, "", "  ")
+	_, err = json.MarshalIndent(res, "", "  ")
 	check(err)
 
-	fmt.Println(string(bytes))
+	// change output as https://github.com/jtriley/pystun
+	fmt.Printf("NAT Type: %s\nExternal IP: %s\nExternal Port: %s\n", res.NATType, res.ExternalIP, res.ExternalPort)
+	//fmt.Println(string(bytes))
 }
