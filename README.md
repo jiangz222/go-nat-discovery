@@ -3,11 +3,16 @@
 NAT type discovery tool using STUN written purely in Go, include client and server.
 
 Rewrite the [go-nats](https://github.com/enobufs/go-nats) which is powered by [pion](https://pion.ly).
-
 Add features:
 - fix bugs in original go-nats' discover rules
 - add stun discovery server 
 - add slave and master server, for servers don't have two public ip
+
+本repo改写了 [go-nats](https://github.com/enobufs/go-nats) ,加入了以下功能
+
+- 修正原repo里的discover rules的bugs
+- 增加stun discovery server
+- 如果server没有2个公网ip，本repo实现了master和slave模式，可以在不同机器上运行他们实现同样的效果
 
 ## Usage
 
