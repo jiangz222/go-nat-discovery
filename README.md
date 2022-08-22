@@ -19,7 +19,7 @@ Add features:
 ### client 
 
 ```
-# go run client.go -s stun.sipgate.net:3478 -i localIp:localPort 
+# go run client.go -H stun.sipgate.net -P 3478 -i localIp:localPort 
 ```
 
 should has output:
