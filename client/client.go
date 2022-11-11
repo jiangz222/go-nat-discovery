@@ -20,17 +20,22 @@ func check(err error) {
 func main() {
 	server := flag.String("H", "stun.sipgate.net", "STUN server address.")
 	port := flag.String("P", "3478", "STUN server port.")
-	localAddr := flag.String("i", "", "STUN local addr. ip or ip:port")
+	mappingAddr := flag.String("m", "", "STUN local addr used for mapping behavior discovery. ip or ip:port")
+	filteringAddr := flag.String("f", "", "STUN local addr used for filtering behavior discovery. ip or ip:port")
 	verbose := flag.Bool("v", false, "Verbose")
 
 	flag.Parse()
-	if !strings.Contains(*localAddr, ":") {
-		*localAddr = *localAddr + ":0"
+	if !strings.Contains(*mappingAddr, ":") {
+		*mappingAddr = *mappingAddr + ":0"
+	}
+	if !strings.Contains(*filteringAddr, ":") {
+		*filteringAddr = *filteringAddr + ":0"
 	}
 	n, err := nats.NewNATS(&nats.Config{
-		Server:  *server + ":" + *port,
-		Verbose: *verbose,
-		Local:   *localAddr,
+		Server:         *server + ":" + *port,
+		Verbose:        *verbose,
+		MappingLocal:   *mappingAddr,
+		FilteringLocal: *filteringAddr,
 	})
 	check(err)
 
