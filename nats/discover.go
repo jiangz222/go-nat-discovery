@@ -60,19 +60,21 @@ type DiscoverResult struct {
 
 // Config has config parameters for NewNATS.
 type Config struct {
-	Server  string
-	Verbose bool
-	Local   string
-	Net     *vnet.Net
+	Server         string
+	Verbose        bool
+	MappingLocal   string
+	FilteringLocal string
+	Net            *vnet.Net
 }
 
 // NATS a class supports NAT type discovery feature.
 type NATS struct {
-	serverAddr net.Addr
-	verbose    bool
-	net        *vnet.Net
-	dfErr      error // filled by discoverFilteringBehavior
-	localAddr  string
+	serverAddr         net.Addr
+	verbose            bool
+	net                *vnet.Net
+	dfErr              error  // filled by discoverFilteringBehavior
+	mappingLocalAddr   string // used for mapping behavior discovery
+	filteringLocalAddr string // used for filtering behavior discovery
 }
 
 // NewNATS creats a new instance of NATS.
@@ -89,10 +91,11 @@ func NewNATS(config *Config) (*NATS, error) {
 	}
 
 	return &NATS{
-		serverAddr: serverAddr,
-		verbose:    config.Verbose,
-		net:        config.Net,
-		localAddr:  config.Local,
+		serverAddr:         serverAddr,
+		verbose:            config.Verbose,
+		net:                config.Net,
+		mappingLocalAddr:   config.MappingLocal,
+		filteringLocalAddr: config.FilteringLocal,
 	}, nil
 }
 
@@ -100,8 +103,8 @@ func NewNATS(config *Config) (*NATS, error) {
 func (nats *NATS) Discover() (*DiscoverResult, error) {
 	nats.dfErr = nil
 	localAddr := "0.0.0.0:0"
-	if nats.localAddr != "" {
-		localAddr = nats.localAddr
+	if nats.mappingLocalAddr != "" {
+		localAddr = nats.mappingLocalAddr
 	}
 	conn, err := nats.net.ListenPacket("udp4", localAddr)
 	if err != nil {
@@ -258,8 +261,8 @@ func (nats *NATS) findIsLocalIP(ip net.IP) bool {
 
 func (nats *NATS) discoverFilteringBehavior() (<-chan EndpointDependencyType, error) {
 	localAddr := "0.0.0.0:0"
-	if nats.localAddr != "" {
-		localAddr = nats.localAddr
+	if nats.filteringLocalAddr != "" {
+		localAddr = nats.filteringLocalAddr
 	}
 	conn, err := nats.net.ListenPacket("udp4", localAddr)
 	if err != nil {
