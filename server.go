@@ -8,7 +8,7 @@ import (
 	"github.com/jiangz222/go-nat-discovery/nats"
 )
 
-func main() {
+func mainOld() {
 	primaryAddr := flag.String("p", "", "STUN primary server address.")
 	secondaryAddr := flag.String("s", "", "STUN secondary server addr")
 	pri2SecHost := flag.String("p2s", "", "STUN primary server to secondary server")
