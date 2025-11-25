@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pion/logging"
-	"github.com/pion/stun"
-	"github.com/pion/transport/vnet"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/pion/logging"
+	"github.com/pion/stun"
+	"github.com/pion/transport/vnet"
 )
 
 const (
@@ -25,7 +27,7 @@ type STUNServerConfig struct {
 	Net              *vnet.Net
 	Role             string
 	Pri2SecHost      string
-	//LoggerFactory    logging.LoggerFactory
+	LogLevel         logging.LogLevel
 }
 type priToSec struct {
 	From  *net.UDPAddr  `json:"from"`
@@ -46,7 +48,7 @@ type STUNServer struct {
 
 // parseReq 解析http请求
 func parseReq(req *http.Request, result interface{}) error {
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		fmt.Println("Error reading body: ", err)
 		return errors.New("can't read body")
@@ -74,13 +76,24 @@ func (s *STUNServer) priToSecHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (s *STUNServer) StartListenServer() {
+	server := &http.Server{
+		Addr:         s.pri2SecHost,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		IdleTimeout:  120 * time.Second,
+		Handler:      http.DefaultServeMux,
+	}
 	http.HandleFunc(priToSecUri, s.priToSecHandler)
-	http.ListenAndServe(s.pri2SecHost, nil)
+	if err := server.ListenAndServe(); err != nil {
+		s.log.Errorf("HTTP server error: %s", err.Error())
+	}
 }
 
 func NewSTUNServer(config *STUNServerConfig) (*STUNServer, error) {
-	//log := config.LoggerFactory.NewLogger("stun-serv")
-	log := logging.NewDefaultLeveledLoggerForScope("", logging.LogLevelDebug, os.Stdout)
+	if config.LogLevel < logging.LogLevelDisabled || config.LogLevel > logging.LogLevelTrace {
+		return nil, errors.New("invalid log level")
+	}
+	log := logging.NewDefaultLeveledLoggerForScope("", config.LogLevel, os.Stdout)
 
 	pri := strings.Split(config.PrimaryAddress, ":")
 	if len(pri) < 2 {
@@ -199,7 +212,8 @@ func (s *STUNServer) readLoop(index int) {
 		err = s.handleBindingRequest(from, m, conn)
 		if err != nil {
 			s.log.Errorf("readLoop: handleBindingRequest failed: %s", err.Error())
-			return
+			// 不要直接 return，继续处理下一个请求，避免 goroutine 退出导致连接无法处理
+			continue
 		}
 	}
 }
@@ -268,7 +282,9 @@ func (s *STUNServer) handleBindingRequest(from net.Addr, m *stun.Message, conn n
 	return nil
 }
 func (s *STUNServer) sendMsgToSec(index int, from net.Addr, m *stun.Message) error {
-	client := http.Client{}
+	client := http.Client{
+		Timeout: 3 * time.Second,
+	}
 	fromUDP := from.(*net.UDPAddr)
 	pts := priToSec{
 		From:  fromUDP,
@@ -285,11 +301,12 @@ func (s *STUNServer) sendMsgToSec(index int, from net.Addr, m *stun.Message) err
 		s.log.Warnf("NewRequest  err: %s", err.Error())
 		return err
 	}
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		s.log.Warnf("client do  err: %s", err.Error())
 		return err
 	}
+	defer resp.Body.Close()
 	s.log.Debug("client do  success ")
 	return nil
 }
